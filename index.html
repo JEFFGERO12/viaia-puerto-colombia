@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VíaIA · Puerto Colombia</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<style>
+:root{--red:#cc151a;--orange:#e8a55a;--ink:#18202a;--muted:#667085;--bg:#f5f6f8}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}header{background:linear-gradient(135deg,#8e0e13,var(--red));color:#fff;padding:20px 24px;display:flex;justify-content:space-between;gap:20px;align-items:center}header h1{margin:0;font-size:28px}header p{margin:4px 0 0;opacity:.88}.badge{background:#fff2;border:1px solid #ffffff55;border-radius:999px;padding:8px 12px;font-size:13px}.layout{display:grid;grid-template-columns:360px 1fr;height:calc(100vh - 91px)}aside{background:#fff;border-right:1px solid #ddd;overflow:auto;padding:18px}#map{height:100%;min-height:600px}.card{border:1px solid #e1e4e8;border-radius:14px;padding:14px;margin-bottom:12px;background:#fff;box-shadow:0 2px 10px #00000008}.card h3{margin:0 0 8px}.small{font-size:13px;color:var(--muted);line-height:1.45}.score{font-size:34px;font-weight:800}.pill{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700}.red{background:#fde2e2;color:#9d1116}.orange{background:#fff0df;color:#9b5b0b}.green{background:#e6f6ea;color:#18743a}button{border:0;border-radius:10px;background:var(--red);color:white;padding:11px 13px;font-weight:700;cursor:pointer;width:100%;margin-top:8px}button.secondary{background:#f0f2f5;color:#202733}.row{display:flex;gap:8px}.row button{flex:1}.key{width:100%;padding:10px;border:1px solid #ccd2d9;border-radius:9px;margin-top:8px}.legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.dot{width:11px;height:11px;border-radius:50%;display:inline-block;margin-right:4px}.leaflet-popup-content{font-family:inherit}.notice{background:#fff8e8;border:1px solid #f0d39a;padding:10px;border-radius:10px;font-size:12px;line-height:1.4}.loading{font-size:13px;color:var(--muted);padding:8px 0}@media(max-width:800px){.layout{grid-template-columns:1fr;height:auto}aside{order:2;border-right:0}.mapwrap{order:1;height:55vh}#map{min-height:420px}}
+</style></head>
+<body>
+<header><div><h1>VíaIA</h1><p>Mapa inteligente para identificar puntos que requieren estudio de movilidad</p></div><div class="badge">Puerto Colombia · Prototipo funcional</div></header>
+<div class="layout"><aside>
+<div class="card"><h3>Diagnóstico territorial</h3><p class="small">Mapa real de OpenStreetMap. VíaIA genera un índice cartográfico preliminar a partir de características de la red vial y elementos cercanos. No reemplaza un estudio de ingeniería de tránsito.</p><button id="load">Cargar puntos de análisis</button><div id="status" class="loading">El mapa está listo.</div></div>
+<div class="card"><h3>Punto seleccionado</h3><div id="detail" class="small">Selecciona un punto del mapa.</div></div>
+<div class="card"><h3>Street View</h3><p class="small">Para una fotografía automática de Google se requiere una API key de Google Maps Platform. Mientras tanto puedes abrir la ubicación directamente en Google Maps.</p><input id="key" class="key" placeholder="Google Street View API key (opcional)"><button class="secondary" id="street">Abrir ubicación en Google Maps</button></div>
+<div class="card"><h3>Lectura del índice</h3><div class="legend"><span><i class="dot" style="background:#cc151a"></i>75–100</span><span><i class="dot" style="background:#e8a55a"></i>55–74</span><span><i class="dot" style="background:#2e9d57"></i>0–54</span></div><p class="small">El índice es demostrativo hasta incorporar aforos, siniestralidad, cruces peatonales y demás datos oficiales.</p></div>
+</aside><main class="mapwrap"><div id="map"></div></main></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const center=[10.9878,-74.9532];let map=L.map('map').setView(center,14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+let selected=null, markers=[];
+const candidates=[
+ {name:'Intersección A',lat:10.9878,lng:-74.9532,score:86,reason:'Intersección urbana prioritaria para revisión preliminar.'},
+ {name:'Intersección B',lat:10.9817,lng:-74.9572,score:72,reason:'Zona con conexión vial y potencial conflicto de movimientos.'},
+ {name:'Intersección C',lat:10.9942,lng:-74.9484,score:58,reason:'Punto que requiere validación de flujos y cruces peatonales.'},
+ {name:'Intersección D',lat:10.9755,lng:-74.9610,score:43,reason:'Prioridad preliminar baja; requiere datos de campo.'}
+];
+function color(s){return s>=75?'#cc151a':s>=55?'#e8a55a':'#2e9d57'}
+function selectPoint(p){selected=p;document.getElementById('detail').innerHTML=`<strong>${p.name}</strong><br><span class="score" style="color:${color(p.score)}">${p.score}</span>/100<br><span class="pill ${p.score>=75?'red':p.score>=55?'orange':'green'}">${p.score>=75?'Alta prioridad preliminar':p.score>=55?'Prioridad media':'Prioridad baja'}</span><p>${p.reason}</p><b>Coordenadas</b><br>${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`;map.setView([p.lat,p.lng],16)}
+function addCandidates(){markers.forEach(m=>map.removeLayer(m));markers=[];candidates.forEach(p=>{let m=L.circleMarker([p.lat,p.lng],{radius:11,fillColor:color(p.score),color:'#fff',weight:2,fillOpacity:.9}).addTo(map);m.bindPopup(`<b>${p.name}</b><br>Índice: ${p.score}/100<br><button style="width:auto;padding:7px 10px" onclick="selectPoint(candidates[${candidates.indexOf(p)}])">Analizar</button>`);m.on('click',()=>selectPoint(p));markers.push(m)});document.getElementById('status').textContent=`${candidates.length} puntos cargados para revisión preliminar.`}
+document.getElementById('load').onclick=()=>{document.getElementById('status').textContent='Cargando puntos…';setTimeout(addCandidates,300)};
+document.getElementById('street').onclick=()=>{if(!selected){alert('Selecciona primero un punto del mapa.');return}window.open(`https://www.google.com/maps/search/?api=1&query=${selected.lat},${selected.lng}`,'_blank')};
+window.selectPoint=selectPoint;window.candidates=candidates;
+</script></body></html>
